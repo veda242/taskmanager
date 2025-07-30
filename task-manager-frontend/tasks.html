@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Tasks - Task Manager</title>
+  <style>
+    body { font-family: Arial; max-width: 600px; margin: 40px auto; background: #f4f4f4; }
+    .box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.1); }
+    button { background: #3398ff; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin: 5px 0; }
+    input { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; }
+    ul { list-style-type: none; padding: 0; }
+    li { background: #eee; margin: 8px 0; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .logout-btn { background: #f44336; float: right; margin-bottom: 10px; }
+    .message { margin: 10px 0; font-weight: bold; color: #333; }
+    .error { color: #c00; }
+    .success { color: #080; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <button id="logout-btn" class="logout-btn">Logout</button>
+    <h2>My Tasks</h2>
+    <form id="task-form">
+      <input id="task-title" placeholder="Task Title" required />
+      <input id="task-desc" placeholder="Task Description" />
+      <button type="submit">Add Task</button>
+    </form>
+    <div id="task-msg" class="message"></div>
+    <ul id="task-list"></ul>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000/api';
+    let token = localStorage.getItem('token');
+
+    if (!token) {
+      window.location.href = 'login.html';
+    }
+
+    const taskForm = document.getElementById('task-form');
+    const taskMsg = document.getElementById('task-msg');
+    const taskList = document.getElementById('task-list');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    function showTaskMsg(message, isError = false) {
+      taskMsg.textContent = message;
+      taskMsg.className = 'message ' + (isError ? 'error' : 'success');
+    }
+
+    async function loadTasks() {
+      try {
+        const res = await fetch(`${API}/tasks`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        const tasks = await res.json();
+        taskList.innerHTML = '';
+        tasks.forEach(task => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <span><b>${task.title}</b>${task.description ? ': ' + task.description : ''}</span>
+            <button onclick="deleteTask('${task._id}')">Delete</button>
+          `;
+          taskList.appendChild(li);
+        });
+      } catch (error) {
+        showTaskMsg('Error loading tasks', true);
+        console.error(error);
+      }
+    }
+
+    taskForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('task-title').value.trim();
+      const description = document.getElementById('task-desc').value.trim();
+
+      if (!title) {
+        showTaskMsg('Task title is required', true);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/tasks`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ title, description })
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        const data = await res.json();
+        if (res.ok) {
+          showTaskMsg('Task added successfully');
+          taskForm.reset();
+          loadTasks();
+        } else {
+          showTaskMsg(data.msg || 'Failed to add task', true);
+        }
+      } catch (error) {
+        showTaskMsg('Error adding task', true);
+        console.error(error);
+      }
+    };
+
+    window.deleteTask = async (id) => {
+      if (!confirm('Delete this task?')) return;
+
+      try {
+        const res = await fetch(`${API}/tasks/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = 'login.html';
+          return;
+        }
+
+        const data = await res.json();
+        if (res.ok) {
+          showTaskMsg('Task deleted successfully');
+          loadTasks();
+        } else {
+          showTaskMsg(data.msg || 'Failed to delete task', true);
+        }
+      } catch (error) {
+        showTaskMsg('Error deleting task', true);
+        console.error(error);
+      }
+    };
+
+    logoutBtn.onclick = () => {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    };
+
+    loadTasks();
+  </script>
+</body>
+</html>

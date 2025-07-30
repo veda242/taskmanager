@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Task Manager</title>
+  <style>
+    body { font-family: Arial; max-width: 320px; margin: 40px auto; background: #f4f4f4; }
+    .box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.1); }
+    label { display: block; margin: 10px 0 5px; }
+    input, button { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; }
+    button { background-color: #3398ff; border: none; color: white; cursor: pointer; }
+    button:hover { background-color: #287bde; }
+    .message { margin: 10px 0; font-weight: bold; color: #333; }
+    .error { color: #c00; }
+    .success { color: #080; }
+    a { text-decoration: none; color: #3398ff; font-size: 0.9em; display: block; margin-top: 10px; text-align: right; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Login</h2>
+    <form id="login-form">
+      <label for="login-username">Username</label>
+      <input id="login-username" type="text" required />
+      
+      <label for="login-password">Password</label>
+      <input id="login-password" type="password" required />
+      
+      <button type="submit">Login</button>
+    </form>
+    <div id="msg" class="message"></div>
+    <a href="register.html">No account? Register</a>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000/api';
+    const form = document.getElementById('login-form');
+    const msg = document.getElementById('msg');
+
+    function show(message, isError=false) {
+      msg.textContent = message;
+      msg.className = 'message ' + (isError ? 'error' : 'success');
+    }
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+
+      if (!username || !password) {
+        show('Both username and password are required.', true);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.token) {
+          localStorage.setItem('token', data.token);
+          show(data.msg || 'Login successful.');
+          form.reset();
+
+          setTimeout(() => {
+            window.location.href = 'tasks.html';
+          }, 1000);
+        } else {
+          show(data.msg || 'Login failed.', true);
+        }
+      } catch (error) {
+        show('Unable to connect to server.', true);
+        console.error('Login error:', error);
+      }
+    };
+  </script>
+</body>
+</html>
